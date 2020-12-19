@@ -1,4 +1,4 @@
-﻿@model IEnumerable<PRmetricWeb.Models.Info>
+﻿@model IEnumerable<PRmetricWeb.Models.IterationTable>
 
 @{
     ViewData["Title"] = "Info";
@@ -6,7 +6,7 @@
 
 <h1>Info</h1>
 
-<table id="jdTable" class="table table-condensed table-hover">
+<table class="table">
     <thead>
         <tr>
             <th>
@@ -16,42 +16,35 @@
                 @Html.DisplayNameFor(model => model.UserName)
             </th>
             <th>
-                @Html.DisplayNameFor(model => model.OpenPRCount)
+                @Html.DisplayNameFor(model => model.Open)
             </th>
             <th>
-                @Html.DisplayNameFor(model => model.ClosedPRCount)
+                @Html.DisplayNameFor(model => model.Closed)
             </th>
             <th>
                 @Html.DisplayNameFor(model => model.All)
             </th>
-            <th>
-                @Html.DisplayNameFor(model => model.TotalPoints)
-            </th>
         </tr>
     </thead>
     <tbody>
-        @foreach (var item in Model)
-        {
-            <tr>
-                <td>
-                    @Html.DisplayFor(modelItem => item.Iteration)
-                </td>
-                <td>
-                    @Html.DisplayFor(modelItem => item.UserName)
-                </td>
-                <td>
-                    @Html.DisplayFor(modelItem => item.OpenPRCount)
-                </td>
-                <td>
-                    @Html.DisplayFor(modelItem => item.ClosedPRCount)
-                </td>
-                <td>
-                    @Html.DisplayFor(modelItem => item.All)
-                </td>
-                <td>
-                    @Html.DisplayFor(modelItem => item.TotalPoints)
-                </td>
-            </tr>
-        }
+@foreach (var item in Model) {
+        <tr>
+            <td>
+                @Html.DisplayFor(modelItem => item.Iteration)
+            </td>
+            <td>
+                @Html.DisplayFor(modelItem => item.UserName)
+            </td>
+            <td>
+                @Html.DisplayFor(modelItem => item.Open)
+            </td>
+            <td>
+                @Html.DisplayFor(modelItem => item.Closed)
+            </td>
+            <td>
+                @Html.DisplayFor(modelItem => item.All)
+            </td>
+        </tr>
+}
     </tbody>
 </table>

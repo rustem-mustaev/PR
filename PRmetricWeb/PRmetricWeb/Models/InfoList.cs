@@ -38,53 +38,49 @@ namespace PRmetricWeb.Models
             SetConnect();
         }
 
-        public List<Info> GetUsers()
+        public List<IterationTable> GetIterationTablesInfo()
         {
-            var teams = TeamClient.GetTeamsAsync(PROJECT_NAME).Result;
-            var teamId = teams[0].Id.ToString();
-            var teamMember = TeamClient
-                .GetTeamMembersWithExtendedPropertiesAsync(PROJECT_NAME, teamId).Result;
-            List<Info> data = new List<Info>();
+            var iterTable = new List<IterationTable>();
 
-            int i = 0;
-            foreach (var member in teamMember)
+            var iterList = GetItterations(); // список итераций
+
+            var closed = GitClient.GetPullRequestsAsync(
+                PROJECT_NAME,
+                REPOS_NAME,
+                new GitPullRequestSearchCriteria { Status = PullRequestStatus.Completed }
+                ).Result;
+            var opened = GitClient.GetPullRequestsAsync(
+                PROJECT_NAME,
+                REPOS_NAME,
+                new GitPullRequestSearchCriteria { }
+                ).Result;
+
+            var prList = opened.Union(closed).ToList();
+
+            foreach (var pr in prList)
             {
-                var ID = member.Identity.Id;
-                var name = member.Identity.DisplayName;
-                var opened = ViewPullCount(PROJECT_NAME, ID, REPOS_NAME);
-                var closed = ViewPullCount(PROJECT_NAME, ID, REPOS_NAME, true);
-                var totalStoryPoints = GetTotalStoryPoint(ID);
+                var wits = GetWorkItemsList(pr.PullRequestId);
+                var witID = Convert.ToInt32(wits[0].Id);
+                string iterName = GetIterName(iterList, witID);
+                string userName = pr.CreatedBy.DisplayName;
+                int open = opened.Count;
+                int close = closed.Count;
+                int all = open + close;
 
-                data.Add(new Info()
+                iterTable.Add(new IterationTable()
                 {
-                    Iteration=i.ToString(),
-                    Id = ID,
-                    UserName = name,
-                    OpenPRCount = opened,
-                    ClosedPRCount = closed,
-                    All = opened + closed,
-                    TotalPoints = totalStoryPoints
+                    Iteration=iterName,
+                    UserName=userName,
+                    Open=open,
+                    Closed=close,
+                    All=all
                 });
-
-                i++;
             }
 
-            return data;
+            return iterTable;
         }
 
-        private void SetConnect()
-        {
-            var connection = new VssConnection(
-                new Uri(URL),
-                new VssBasicCredential(string.Empty, TOKEN)
-                );
-            GitClient = connection.GetClient<GitHttpClient>();
-            TeamClient = connection.GetClient<TeamHttpClient>();
-            WorkItemClient = connection.GetClient<WorkItemTrackingHttpClient>();
-            WorkClient = connection.GetClient<WorkHttpClient>();
-        }
-
-        public List<TeamSettingsIteration> GetItteration()
+        public List<TeamSettingsIteration> GetItterations()
         {
             var list = WorkClient.GetTeamIterationsAsync(
                 new TeamContext(PROJECT_NAME)
@@ -92,17 +88,72 @@ namespace PRmetricWeb.Models
             return list;
         }
 
-        public void GetSmth()
+        public List<GitPullRequest> GetAllPR()
         {
-            var pr = GitClient.GetPullRequestsAsync(PROJECT_NAME,REPOS_NAME,
-                new GitPullRequestSearchCriteria { }).Result;
-
-            var itList = GetItteration();
-            var q = GitClient.GetPullRequestIterationsAsync(PROJECT_NAME, REPOS_NAME, pr[1].PullRequestId).Result;
-            var s = GitClient.GetPullRequestIterationChangesAsync(
+            var closed = GitClient.GetPullRequestsAsync(
                 PROJECT_NAME,
-                REPOS_NAME,pr[0].PullRequestId,1
+                REPOS_NAME,
+                new GitPullRequestSearchCriteria { Status = PullRequestStatus.Completed }
                 ).Result;
+            var opened = GitClient.GetPullRequestsAsync(
+                PROJECT_NAME,
+                REPOS_NAME,
+                new GitPullRequestSearchCriteria { }
+                ).Result;
+
+            var prList = opened.Union(closed).ToList();
+            return prList;
+        }
+
+        public string GetSmth()
+        {
+            var iterList = GetItterations();
+
+            var closed = GitClient.GetPullRequestsAsync(
+                PROJECT_NAME,
+                REPOS_NAME,
+                new GitPullRequestSearchCriteria {Status = PullRequestStatus.Completed}
+                ).Result;
+            var opened = GitClient.GetPullRequestsAsync(
+                PROJECT_NAME,
+                REPOS_NAME,
+                new GitPullRequestSearchCriteria {}
+                ).Result;
+
+            var PR = opened[0];
+            var wits = GetWorkItemsList(PR.PullRequestId);
+            var witID = Convert.ToInt32(wits[0].Id);
+            string name = GetIterName(iterList, witID);
+            name = PR.CreatedBy.DisplayName;
+
+            return name;
+        }
+
+        private string GetIterName(List<TeamSettingsIteration> iters, int witID)
+        {
+            string name = "none";
+            foreach(var iter in iters)
+            {
+                var items = WorkClient.GetIterationWorkItemsAsync(
+                   new TeamContext(PROJECT_NAME),
+                   iter.Id).Result.WorkItemRelations.ToList();
+
+                bool find = false;
+                foreach(var item in items)
+                {
+                    if (item.Target.Id == witID)
+                    {
+                        find = true;
+                        break;
+                    }
+                }
+                if (find)
+                {
+                    name = iter.Name;
+                    break;
+                }
+            }
+            return name;
         }
 
         private int ViewPullCount(string TeamProjectName, string userId, string GitRepo, bool CompletedPRs = false)
@@ -122,7 +173,8 @@ namespace PRmetricWeb.Models
                     GitRepo,
                     new GitPullRequestSearchCriteria
                     {
-                        CreatorId = Guid.Parse(userId)
+                        CreatorId = Guid.Parse(userId),
+                        
                     },
                     null
                ).Result;
@@ -189,6 +241,52 @@ namespace PRmetricWeb.Models
                    null
                    ).Result;
             return pullRequests;
+        }
+
+        public List<Info> GetUsers()
+        {
+            var teams = TeamClient.GetTeamsAsync(PROJECT_NAME).Result;
+            var teamId = teams[0].Id.ToString();
+            var teamMember = TeamClient
+                .GetTeamMembersWithExtendedPropertiesAsync(PROJECT_NAME, teamId).Result;
+            List<Info> data = new List<Info>();
+
+            int i = 0;
+            foreach (var member in teamMember)
+            {
+                var ID = member.Identity.Id;
+                var name = member.Identity.DisplayName;
+                var opened = ViewPullCount(PROJECT_NAME, ID, REPOS_NAME);
+                var closed = ViewPullCount(PROJECT_NAME, ID, REPOS_NAME, true);
+                var totalStoryPoints = GetTotalStoryPoint(ID);
+
+                data.Add(new Info()
+                {
+                    Iteration = i.ToString(),
+                    Id = ID,
+                    UserName = name,
+                    OpenPRCount = opened,
+                    ClosedPRCount = closed,
+                    All = opened + closed,
+                    TotalPoints = totalStoryPoints
+                });
+
+                i++;
+            }
+
+            return data;
+        }
+
+        private void SetConnect()
+        {
+            var connection = new VssConnection(
+                new Uri(URL),
+                new VssBasicCredential(string.Empty, TOKEN)
+                );
+            GitClient = connection.GetClient<GitHttpClient>();
+            TeamClient = connection.GetClient<TeamHttpClient>();
+            WorkItemClient = connection.GetClient<WorkItemTrackingHttpClient>();
+            WorkClient = connection.GetClient<WorkHttpClient>();
         }
     }
 }

@@ -26,10 +26,8 @@ namespace PRmetricWeb.Controllers
         public IActionResult Info()
         {
             var InfoList = new InfoList();
-            var Info = InfoList.GetUsers();
-            var l = InfoList.GetItteration();
-            InfoList.GetSmth();
-            return View(Info);
+            var info = InfoList.GetIterationTablesInfo();
+            return View(info);
         }
     }
 }
